@@ -80,6 +80,10 @@ class OpenAIClient(BaseLLMClient):
         if self.provider == "openai" and (not self.base_url or "api.openai.com" in self.base_url):
             llm_kwargs["use_responses_api"] = True
 
+        # HKCONSEILS fork: default 600s SDK timeout for long reasoning tasks
+        # (Bull/Bear Researchers on large tickers exceed LiteLLM default 120s)
+        llm_kwargs.setdefault("timeout", 600)
+
         return NormalizedChatOpenAI(**llm_kwargs)
 
     def validate_model(self) -> bool:
