@@ -69,6 +69,15 @@ class OpenAIClient(BaseLLMClient):
         elif self.base_url:
             llm_kwargs["base_url"] = self.base_url
 
+        # HKCONSEILS fork: per-model base_url override via env var.
+        # Bypasses a proxy that imposes request_timeout < model generation
+        # duration. Env var format: HKCONSEILS_BASE_URL__<SANITIZED_MODEL>
+        # where SANITIZED_MODEL = model.upper().replace(".", "_").replace("-", "_")
+        _sanitized = self.model.upper().replace(".", "_").replace("-", "_")
+        _override = os.environ.get(f"HKCONSEILS_BASE_URL__{_sanitized}")
+        if _override:
+            llm_kwargs["base_url"] = _override
+
         # Forward user-provided kwargs
         for key in _PASSTHROUGH_KWARGS:
             if key in self.kwargs:
