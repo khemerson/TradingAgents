@@ -16,13 +16,23 @@ class Propagator:
         self.max_recur_limit = max_recur_limit
 
     def create_initial_state(
-        self, company_name: str, trade_date: str
+        self,
+        company_name: str,
+        trade_date: str,
+        chart_image_b64: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Create the initial state for the agent graph."""
+        """Create the initial state for the agent graph.
+
+        Args:
+            company_name: ticker symbol
+            trade_date: analysis date (YYYY-MM-DD)
+            chart_image_b64: optional base64-encoded chart image for Vision Analyst
+        """
         return {
             "messages": [("human", company_name)],
             "company_of_interest": company_name,
             "trade_date": str(trade_date),
+            "chart_image_b64": chart_image_b64 or "",
             "investment_debate_state": InvestDebateState(
                 {
                     "bull_history": "",
@@ -51,6 +61,7 @@ class Propagator:
             "fundamentals_report": "",
             "sentiment_report": "",
             "news_report": "",
+            "vision_report": "",
         }
 
     def get_graph_args(self, callbacks: Optional[List] = None) -> Dict[str, Any]:

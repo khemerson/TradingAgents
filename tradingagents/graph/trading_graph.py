@@ -45,7 +45,7 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=["market", "social", "news", "fundamentals"],
+        selected_analysts=["market", "social", "news", "fundamentals", "vision"],
         debug=False,
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
@@ -191,14 +191,20 @@ class TradingAgentsGraph:
             ),
         }
 
-    def propagate(self, company_name, trade_date):
-        """Run the trading agents graph for a company on a specific date."""
+    def propagate(self, company_name, trade_date, chart_image_b64=None):
+        """Run the trading agents graph for a company on a specific date.
+
+        Args:
+            company_name: ticker symbol
+            trade_date: analysis date (YYYY-MM-DD)
+            chart_image_b64: optional base64-encoded chart image for Vision Analyst
+        """
 
         self.ticker = company_name
 
         # Initialize state
         init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date
+            company_name, trade_date, chart_image_b64=chart_image_b64
         )
         args = self.propagator.get_graph_args()
 
@@ -235,6 +241,7 @@ class TradingAgentsGraph:
             "sentiment_report": final_state["sentiment_report"],
             "news_report": final_state["news_report"],
             "fundamentals_report": final_state["fundamentals_report"],
+            "vision_report": final_state.get("vision_report", ""),
             "investment_debate_state": {
                 "bull_history": final_state["investment_debate_state"]["bull_history"],
                 "bear_history": final_state["investment_debate_state"]["bear_history"],

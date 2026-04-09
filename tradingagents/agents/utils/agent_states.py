@@ -56,6 +56,10 @@ class AgentState(MessagesState):
         str, "Report from the News Researcher of current world affairs"
     ]
     fundamentals_report: Annotated[str, "Report from the Fundamentals Researcher"]
+    vision_report: Annotated[str, "Report from the Vision Analyst (chart image analysis)"]
+
+    # Optional base64-encoded chart image injected by run_analysis.py --image
+    chart_image_b64: Annotated[str, "Base64-encoded chart image for Vision Analyst"]
 
     # researcher team discussion step
     investment_debate_state: Annotated[
