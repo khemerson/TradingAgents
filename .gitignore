@@ -220,3 +220,13 @@ __marimo__/
 
 # HKCONSEILS local wrapper (not part of upstream)
 run_analysis.py
+
+# HKCONSEILS F6 — local pipeline files
+pipeline_runner.py
+data/
+output/
+.env.triage
+run_watchlist.sh
+run_batch*.sh
+serve_results.py
+*.bak*
