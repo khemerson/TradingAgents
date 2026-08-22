@@ -79,6 +79,9 @@ _YAHOO_SAFE = re.compile(r"^[A-Za-z0-9._\-\^=]+$")
 # match before the ``USD`` substring.
 _CRYPTO_QUOTES = ("USDT", "USDC", "USD")
 
+# Fork HKCONSEILS : bases supplementaires verifiees cote source (voir le module).
+from .crypto_bases_hkconseils import base_supplementaire  # noqa: E402
+
 
 def crypto_base(raw: str) -> str | None:
     """Return the crypto base (e.g. ``BTC``) for a known USD/USDT/USDC-quoted
@@ -91,7 +94,12 @@ def crypto_base(raw: str) -> str | None:
     for quote in _CRYPTO_QUOTES:
         if compact.endswith(quote):
             base = compact[: -len(quote)]
-            return base if base in _CRYPTO_BASES else None
+            # Fork HKCONSEILS : la liste amont _CRYPTO_BASES reste intacte ; on y
+            # ajoute une surcharge additive, peuplee uniquement de bases dont la
+            # source a confirme l'existence par requete reelle.
+            if base in _CRYPTO_BASES or base_supplementaire(base):
+                return base
+            return None
     return None
 
 
