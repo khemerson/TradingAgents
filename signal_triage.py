@@ -6,7 +6,7 @@ triages each via Qwen3.5-27B (vision-capable), returns actionable signals.
 Requires:
 - Telethon session for reading the private channel
 - .env with TRIAGE_API_ID, TRIAGE_API_HASH, TRIAGE_SESSION_STRING, TRIAGE_CHANNEL_ID
-- Qwen3.5-27B accessible at HKCONSEILS_BASE_URL__QWEN3_5_27B (default 192.168.1.225:8080)
+- Qwen3.5-27B accessible at HKCONSEILS_BASE_URL__QWEN3_5_27B (default 192.168.1.225:8081)
 
 Usage:
     python signal_triage.py                   # normal run
@@ -33,7 +33,7 @@ DATA_DIR = Path(__file__).parent / "data"
 STATE_FILE = DATA_DIR / "triage_state.json"
 ENV_FILE = Path(__file__).parent / ".env.triage"
 CERVEAU_URL = os.environ.get(
-    "HKCONSEILS_BASE_URL__QWEN3_5_27B", "http://192.168.1.225:8080"
+    "HKCONSEILS_BASE_URL__QWEN3_5_27B", "http://192.168.1.225:8081"
 )
 MAX_INITIAL_MESSAGES = 20
 TRIAGE_TIMEOUT = 60  # seconds per message
@@ -63,7 +63,7 @@ def _get_config() -> dict:
             "TRIAGE_SESSION_STRING", env.get("TRIAGE_SESSION_STRING", "")
         ),
         "channel_id": int(
-            os.environ.get("TRIAGE_CHANNEL_ID", env.get("TRIAGE_CHANNEL_ID", "-5158205216"))
+            os.environ.get("TRIAGE_CHANNEL_ID", env.get("TRIAGE_CHANNEL_ID", "-1003964560315"))
         ),
     }
 
@@ -82,17 +82,37 @@ def _save_state(state: dict) -> None:
 
 # ── LLM triage via llama-server (OpenAI-compatible) ──────────────────
 TRIAGE_PROMPT = """Tu es un trieur de signaux trading. Analyse le message suivant provenant d'un channel Telegram d'analyse trading.
-Classifie-le en exactement une de ces 3 catégories :
+Classifie-le en exactement une de ces 3 categories :
 
-SIGNAL : le message contient une recommandation claire d'achat ou de vente avec un ticker identifiable. Exemples : "BUY BTC", "Long ETH target 4000", "Short NVDA", chart annoté avec flèches d'entrée/sortie.
-ANALYSE : le message contient une analyse de marché intéressante mais sans recommandation directe. Exemples : "BTC looks bullish on the weekly", "Interesting divergence on RSI for ETH".
-BRUIT : le message est du bruit — promo, meme, lien sponsorisé, conversation, off-topic, message trop court ou incompréhensible.
+SIGNAL : le message contient une recommandation claire d'achat ou de vente avec un ticker identifiable. Exemples : "BUY BTC", "Long ETH target 4000", "Short NVDA", chart annote avec fleches d'entree/sortie.
+ANALYSE : le message contient une analyse de marche interessante mais sans recommandation directe. Exemples : "BTC looks bullish on the weekly", "Interesting divergence on RSI for ETH".
+BRUIT : le message est du bruit — promo, meme, lien sponsorise, conversation, off-topic, message trop court ou incomprehensible.
 
-RÈGLE CRITIQUE : en cas de doute entre SIGNAL et ANALYSE, choisis ANALYSE. Mieux vaut rater un signal que lancer une analyse sur du bruit.
-Réponds UNIQUEMENT en JSON strict, pas de texte avant ou après :
-{"classification": "SIGNAL" | "ANALYSE" | "BRUIT", "ticker": "BTC-USD" | null, "direction": "BUY" | "SELL" | null, "confidence": 1-10, "reason": "explication courte"}
+## Signaux implicites (trading channels crypto)
+Les traders experimentes ne disent pas toujours "BUY". Ils utilisent un langage implicite.
+Classifie comme SIGNAL (confiance 5-6) quand tu vois :
+- Hashtag ticker (#RAVE, #DOT, #POWER) + commentaire technique positif
+- "A nice structure is formed" = accumulation identifiee -> SIGNAL
+- "breaking out" = cassure de resistance -> SIGNAL
+- "came back with a wedge" = pattern technique -> SIGNAL
+- Chart avec annotations + direction claire -> SIGNAL
+- Multiplicateurs "x5", "x10" = target implicite -> SIGNAL (direction BUY)
+Reste ANALYSE si : "Interesting chart" sans direction, question, comparaison sans conclusion.
 
-Message à trier :
+## Extraction ticker
+Hashtag = ticker : #RAVE -> RAVE-USD, #RIVER -> RIVER-USD, #POWER -> POWER-USD
+Si le ticker n'a pas de suffixe, ajoute -USD.
+Si plusieurs tickers dans le meme message (#Rave & #RIVER), choisis le premier mentionne.
+
+## Image
+Si le message contient une image/photo (chart), augmente la confiance de +1.
+Un chart annote par un trader repute EST un signal.
+
+REGLE CRITIQUE : en cas de doute entre SIGNAL et ANALYSE, choisis ANALYSE. Mieux vaut rater un signal que lancer une analyse sur du bruit.
+Reponds UNIQUEMENT en JSON strict, pas de texte avant ou apres :
+{"classification": "SIGNAL" | "ANALYSE" | "BRUIT", "ticker": "RAVE-USD" | null, "direction": "BUY" | "SELL" | null, "confidence": 1-10, "reason": "explication courte"}
+
+Message a trier :
 """
 
 
@@ -116,7 +136,7 @@ async def _triage_message(text: str, image_b64: str | None = None) -> dict:
         ]
 
     payload = {
-        "model": "qwen3.5-27b",
+        "model": "qwen38-27b",
         "messages": messages,
         "max_tokens": 300,
         "temperature": 0.1,
