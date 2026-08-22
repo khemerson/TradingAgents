@@ -6,7 +6,7 @@ triages each via Qwen3.5-27B (vision-capable), returns actionable signals.
 Requires:
 - Telethon session for reading the private channel
 - .env with TRIAGE_API_ID, TRIAGE_API_HASH, TRIAGE_SESSION_STRING, TRIAGE_CHANNEL_ID
-- Modele de triage joignable a l'adresse HKCONSEILS_BRAIN_URL (voir .env.example)
+- Modele de triage joignable a l'adresse HKCONSEILS_BRAIN_URL (voir .env.hkconseils.example)
 
 Usage:
     python signal_triage.py                   # normal run

@@ -19,7 +19,9 @@ from tradingagents.agents.analysts.vision_analyst import (
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.factory import create_llm_client
 
-IMAGE = Path("testdata/chart_test_AAPL.png")
+# Ancre sur l'emplacement du fichier, jamais sur le repertoire courant : le
+# test doit pouvoir etre lance depuis n'importe ou.
+IMAGE = Path(__file__).resolve().parent / "testdata" / "chart_test_AAPL.png"
 ok = True
 
 print("=== 1. sans image : rapport de substitution, aucun appel LLM ===")
