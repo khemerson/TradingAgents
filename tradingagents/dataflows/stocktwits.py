@@ -19,6 +19,7 @@ import json
 import logging
 from urllib.request import Request, urlopen
 
+from .crypto_bases_hkconseils import appliquer_alias
 from .symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ def _stocktwits_symbol(ticker: str) -> str:
     crypto symbol resolves to its base plus ``.X``; other symbols pass through
     upper-cased.
     """
+    # Fork HKCONSEILS : alias de sentiment applique avant resolution de la base.
+    ticker = appliquer_alias(ticker)
     base = crypto_base(ticker)
     return f"{base}.X" if base else ticker.strip().upper()
 

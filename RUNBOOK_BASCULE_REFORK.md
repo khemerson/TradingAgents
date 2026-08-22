@@ -65,9 +65,15 @@ git rev-parse --abbrev-ref HEAD        # attendu : refork-v0.3.1
 
 ### 2.4 Arbitrage préalable
 
-- **Couverture crypto** : 11 des 12 valeurs suivies sont couvertes. `SUI20947-USD` ne l'est pas — la
-  source ne connaît pas ce symbole. Trancher : activer l'alias vers `SUI`, retirer la valeur de la
-  liste, ou accepter la dégradation en la documentant. **Décision requise avant bascule.**
+- **Couverture crypto : tranchée, 12/12.** La source ignore la forme longue d'une des valeurs
+  suivies ; un alias de sentiment la fait pointer vers la forme courte, seule connue des fils
+  sociaux. Cet alias est **actif**, et sa portée est strictement limitée au sentiment : le symbole
+  de **cotation** reste inchangé, ce qu'un garde-fou dédié vérifie. Aucune décision en suspens.
+
+```bash
+cd ~/TradingAgents-v031 && .venv/bin/pytest -q tests/test_hkconseils_crypto_bases.py | tail -1
+# attendu : 29 passed — dont le garde-fou anti-fuite vers le chemin des cours
+```
 
 ---
 
@@ -76,19 +82,29 @@ git rev-parse --abbrev-ref HEAD        # attendu : refork-v0.3.1
 Le principe : faire tourner les deux en parallèle, sans que le re-fork écrive quoi que ce soit
 d'engageant, et comparer.
 
-**Durée proposée : 7 jours consécutifs**, dont un dimanche (pour couvrir le cycle hebdomadaire).
+**Durée : 7 jours consécutifs, du lundi 24/08 au dimanche 30/08**, dimanche inclus pour couvrir le
+cycle hebdomadaire.
 
-**Mise en place** — une entrée de planification *supplémentaire*, qui ne remplace rien :
+**Mise en place** — deux entrées de planification *supplémentaires*, qui ne remplacent rien.
+Elles sont **déjà installées, désarmées** (commentées, marqueur `COOBS-ARMED`) : l'armement tient
+en un seul geste, décommenter.
 
 ```
-# co-observation, décalée d'une heure pour ne pas concurrencer le cycle en place
-30 7 * * *  cd ~/TradingAgents-v031 && .venv/bin/python pipeline_runner.py --mode watch \
-            >> data/coobs_$(date +\%Y\%m\%d).log 2>&1
+# COOBS-ARMED  lundi à samedi — décalage d'une heure sur le cycle en place
+#30 7 * * 1-6  cd ~/TradingAgents-v031 && .venv/bin/python pipeline_runner.py --mode watch \
+#              >> data/coobs_$(date +\%Y\%m\%d).log 2>&1
+
+# COOBS-ARMED  dimanche en soirée — voir le motif ci-dessous
+#0 19 * * 0    cd ~/TradingAgents-v031 && .venv/bin/python pipeline_runner.py --mode watch \
+#              >> data/coobs_$(date +\%Y\%m\%d).log 2>&1
 ```
 
-> Le décalage n'est pas cosmétique : lancer les deux en même temps ferait entrer les deux
-> déploiements en concurrence sur le calculateur et fausserait à la fois les durées et la
-> comparaison.
+> **Pourquoi le dimanche est traité à part.** Le décalage d'une heure suffit en semaine, où les
+> exécutions sont courtes. Il ne protège rien le dimanche : **le cycle hebdomadaire de production
+> occupe le calculateur toute la matinée** — de l'ordre de dix heures pour parcourir la liste de
+> surveillance. Une co-observation lancée à 07:30 ce jour-là entrerait en concurrence directe avec
+> lui, fausserait les durées des deux côtés et pourrait dégrader le cycle de production lui-même.
+> D'où le report en soirée, à 19:00, une fois la matinée libérée.
 
 ### Critères de comparaison, relevés chaque jour
 
@@ -113,7 +129,7 @@ d'engageant, et comparer.
 3. **0** violation inexpliquée, et le refus reste démontrable (rejet provoqué rejoué avant bascule) ;
 4. **0** génération atteignant le plafond ;
 5. durée médiane par valeur **≤ 1,3×** celle du déploiement en place ;
-6. **≥ 11/12** valeurs crypto avec un sentiment alimenté ;
+6. **12/12** valeurs crypto avec un sentiment alimenté ;
 7. **0** écriture inattendue hors du re-fork et de son répertoire de données.
 
 **NO-GO** dès qu'un seul de ces points est manqué. En particulier, **tout** recours à l'analyse

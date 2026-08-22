@@ -43,15 +43,17 @@ BASES_SUPPLEMENTAIRES: frozenset[str] = frozenset({
 # Cas SUI20947-USD : le suffixe numerique est un artefact de desambiguisation
 # d'un fournisseur de cours ; les sources sociales ne connaissent que SUI.
 #
-# ATTENTION : ces alias sont DESACTIVES par defaut. Les activer modifie le
-# symbole effectivement interroge pour un ticker de la liste de surveillance,
-# ce qui releve d'une decision d'exploitation, pas d'un portage. Voir le
-# rapport du GATE 8 pour l'arbitrage.
+# ACTIFS depuis la cloture du GATE 8, sur decision d'exploitation.
+#
+# PORTEE STRICTE : l'alias ne s'applique qu'au chemin du SENTIMENT (fils sociaux).
+# Il ne doit JAMAIS passer par crypto_base(), qui alimente aussi la normalisation
+# des symboles de COTATION : le ticker a suffixe numerique reste le symbole de
+# cours valide, et le changer irait chercher les prix ailleurs.
 ALIAS_TICKERS: dict[str, str] = {
     "SUI20947-USD": "SUI-USD",
 }
 
-ALIAS_ACTIFS = False
+ALIAS_ACTIFS = True
 
 
 def base_supplementaire(base: str | None) -> bool:

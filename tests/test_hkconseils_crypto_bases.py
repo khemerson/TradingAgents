@@ -71,16 +71,42 @@ def test_base_inconnue_reste_inconnue():
         assert not base_supplementaire(faux)
 
 
-def test_symbole_a_suffixe_numerique_non_mappe():
-    """SUI20947 : StockTwits repond 404 sur SUI20947.X, on ne mappe pas vers du vide."""
+def test_suffixe_numerique_inconnu_de_la_source():
+    """La forme longue reste inconnue : StockTwits repond 404 sur SUI20947.X.
+
+    C'est ce qui justifie l'alias — et non un mappage vers du vide.
+    """
     assert crypto_base("SUI20947-USD") is None
-    assert _stocktwits_symbol("SUI20947-USD") == "SUI20947-USD"
 
 
-def test_alias_desactives_par_defaut():
-    """Activer un alias change le symbole interroge : c'est une decision d'exploitation."""
-    assert ALIAS_ACTIFS is False
-    assert appliquer_alias("SUI20947-USD") == "SUI20947-USD"
+def test_alias_actifs():
+    """Active a la cloture du GATE 8, sur decision d'exploitation."""
+    assert ALIAS_ACTIFS is True
+    assert appliquer_alias("SUI20947-USD") == "SUI-USD"
+
+
+def test_alias_resout_vers_le_symbole_connu():
+    """Chemin du sentiment : la forme longue atteint le fil social de la forme courte."""
+    assert _stocktwits_symbol("SUI20947-USD") == "SUI.X"
+
+
+def test_alias_n_affecte_PAS_le_chemin_des_cours():
+    """Garde-fou decisif.
+
+    crypto_base() alimente normalize_symbol(), donc la resolution des symboles de
+    COTATION. Si l'alias fuyait jusque-la, les prix seraient cherches sur un autre
+    symbole que celui qui cote. La forme longue doit rester intacte de ce cote.
+    """
+    from tradingagents.dataflows.symbol_utils import normalize_symbol
+
+    assert normalize_symbol("SUI20947-USD") == "SUI20947-USD"
+    assert crypto_base("SUI20947-USD") is None
+
+
+def test_alias_ne_touche_aucun_autre_ticker():
+    """Un alias ne vaut que pour la forme qu'il declare."""
+    for t in ("BTC-USD", "SUI-USD", "AAPL", "TAO-USD"):
+        assert appliquer_alias(t) == t
 
 
 def test_alias_documente_pour_le_cas_connu():
@@ -89,10 +115,11 @@ def test_alias_documente_pour_le_cas_connu():
 
 
 def test_couverture_de_la_liste_de_surveillance():
-    """Cible du GATE 8 : au moins 11 des 12 valeurs suivies sont couvertes."""
+    """Cible atteinte a la cloture du GATE 8 : les 12 valeurs suivies sont couvertes."""
     surveillance = [
         "BTC-USD", "ETH-USD", "XRP-USD", "BNB-USD", "SOL-USD", "DOGE-USD",
         "ADA-USD", "TRX-USD", "LINK-USD", "TAO-USD", "ZEC-USD", "SUI20947-USD",
     ]
-    couverts = [t for t in surveillance if crypto_base(t)]
-    assert len(couverts) >= 11, f"seulement {len(couverts)}/12 couverts"
+    # Mesure sur le chemin reellement emprunte par le sentiment, alias compris.
+    couverts = [t for t in surveillance if _stocktwits_symbol(t).endswith(".X")]
+    assert len(couverts) == 12, f"seulement {len(couverts)}/12 couverts"

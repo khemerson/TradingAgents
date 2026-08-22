@@ -30,6 +30,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from .crypto_bases_hkconseils import appliquer_alias
 from .symbol_utils import crypto_base
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,7 @@ def fetch_reddit_posts(
     """
     # Crypto reaches us as a Yahoo pair (BTC-USD); search Reddit for the base
     # ("BTC") so the query actually matches discussion instead of near-nothing.
-    ticker = crypto_base(ticker) or ticker
+    ticker = crypto_base(appliquer_alias(ticker)) or ticker
     blocks = []
     total_posts = 0
     for i, sub in enumerate(subreddits):
