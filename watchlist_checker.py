@@ -18,7 +18,7 @@ from microcap_data import normalize_symbol, fetch_ohlcv, compute_indicators
 from watchlist_manager import get_active, update_check, trigger
 
 BRAIN_URL = os.environ.get(
-    "HKCONSEILS_BASE_URL__QWEN3_5_27B", "http://192.168.1.225:8081/v1"
+    "HKCONSEILS_BRAIN_URL_V1", "http://localhost:8081/v1"
 )
 
 

@@ -6,7 +6,7 @@ triages each via Qwen3.5-27B (vision-capable), returns actionable signals.
 Requires:
 - Telethon session for reading the private channel
 - .env with TRIAGE_API_ID, TRIAGE_API_HASH, TRIAGE_SESSION_STRING, TRIAGE_CHANNEL_ID
-- Qwen3.5-27B accessible at HKCONSEILS_BASE_URL__QWEN3_5_27B (default 192.168.1.225:8081)
+- Modele de triage joignable a l'adresse HKCONSEILS_BRAIN_URL (voir .env.hkconseils.example)
 
 Usage:
     python signal_triage.py                   # normal run
@@ -33,7 +33,7 @@ DATA_DIR = Path(__file__).parent / "data"
 STATE_FILE = DATA_DIR / "triage_state.json"
 ENV_FILE = Path(__file__).parent / ".env.triage"
 CERVEAU_URL = os.environ.get(
-    "HKCONSEILS_BASE_URL__QWEN3_5_27B", "http://192.168.1.225:8081"
+    "HKCONSEILS_BRAIN_URL", "http://localhost:8081"
 )
 MAX_INITIAL_MESSAGES = 20
 TRIAGE_TIMEOUT = 60  # seconds per message
