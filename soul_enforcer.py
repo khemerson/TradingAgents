@@ -148,7 +148,7 @@ def parse_decision(final_decision_text: str, ticker: str = "") -> dict:
 _DECISION_LOG = Path(
     os.environ.get(
         "HKCONSEILS_ENFORCER_LOG",
-        "/home/khemerson/tradingagents/logs/enforcer_decisions.jsonl",
+        str(Path(__file__).resolve().parent / "logs" / "enforcer_decisions.jsonl"),
     )
 )
 _DETAILS_MAX = 500

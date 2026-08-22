@@ -1,6 +1,7 @@
 """Unit tests for soul_enforcer.py"""
+import os
 import sys
-sys.path.insert(0, "/home/khemerson/tradingagents")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from soul_enforcer import enforce, parse_decision, extract_decision_json, EnforcementResult
 

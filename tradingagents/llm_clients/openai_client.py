@@ -164,9 +164,25 @@ class MinimaxChatOpenAI(NormalizedChatOpenAI):
 
 # Kwargs forwarded from user config to ChatOpenAI
 _PASSTHROUGH_KWARGS = (
-    "timeout", "max_retries", "reasoning_effort", "temperature",
+    "timeout", "max_retries", "reasoning_effort", "temperature", "max_tokens",
     "api_key", "callbacks", "http_client", "http_async_client",
 )
+
+# HKCONSEILS fork - plafond de sortie par defaut pour les appels Chat Completions.
+# Calibre sur un audit de 14 jours (sortie max observee <=7K, prompt prod <=30K,
+# ctx/slot 48128) : 16000 laisse le double de marge sur le pic constate. LiteLLM
+# porte le meme plafond cote serveur ; ceci est la defense en profondeur cote
+# client. Surchargeable par HKCONSEILS_MAX_TOKENS. Une valeur fournie par
+# l'appelant (via _PASSTHROUGH_KWARGS) reste prioritaire grace au setdefault.
+_HK_DEFAULT_MAX_TOKENS = 16000
+
+# HKCONSEILS fork - delai SDK par defaut, en secondes.
+# v0.3.1 accepte `timeout` dans _PASSTHROUGH_KWARGS mais rien ne l'y injecte :
+# ni DEFAULT_CONFIG ni trading_graph._get_provider_kwargs ne portent la cle. Sans
+# ce defaut, le delai retombe sur celui du SDK openai (read=600 s), alors que les
+# chercheurs haussier/baissier depassent ce seuil sur les gros tickers. 1800 s est
+# la valeur calibree sur l'exploitation. Surchargeable par HKCONSEILS_SDK_TIMEOUT.
+_HK_DEFAULT_SDK_TIMEOUT = 1800.0
 
 # OpenAI's ``reasoning_effort`` is only accepted by reasoning models — the GPT-5
 # family and the o-series. Non-reasoning models (gpt-4.1, gpt-4o, ...) 400 with
@@ -328,6 +344,23 @@ class OpenAIClient(BaseLLMClient):
             if key == "reasoning_effort" and not _supports_reasoning_effort(self.model):
                 continue
             llm_kwargs[key] = self.kwargs[key]
+
+        # HKCONSEILS fork : delai SDK par defaut. Independant du plafond, donc
+        # applique aussi sous Responses API. setdefault -> une valeur explicite
+        # de l'appelant reste prioritaire.
+        llm_kwargs.setdefault(
+            "timeout",
+            float(os.environ.get("HKCONSEILS_SDK_TIMEOUT", _HK_DEFAULT_SDK_TIMEOUT)),
+        )
+
+        # HKCONSEILS fork : plafond de sortie par defaut. setdefault -> une valeur
+        # explicite de l'appelant (ex. vision_analyst) reste prioritaire. Ignore
+        # pour la Responses API, qui utilise max_output_tokens.
+        if not llm_kwargs.get("use_responses_api"):
+            llm_kwargs.setdefault(
+                "max_tokens",
+                int(os.environ.get("HKCONSEILS_MAX_TOKENS", _HK_DEFAULT_MAX_TOKENS)),
+            )
 
         # The subclass (provider quirks) comes from the registry spec.
         return chat_cls(**llm_kwargs)

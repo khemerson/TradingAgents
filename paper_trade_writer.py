@@ -26,7 +26,7 @@ DB_PATH = Path(
 
 DIVERGENCE_REJECT_THRESHOLD = 0.05  # 5% spot↔llm price gap → hard reject
 REFUSED_LOG_DIR = Path(
-    os.environ.get("HKCONSEILS_REFUSED_LOG_DIR", "/home/khemerson/tradingagents/data")
+    os.environ.get("HKCONSEILS_REFUSED_LOG_DIR", str(Path(__file__).resolve().parent / "data"))
 )
 
 
