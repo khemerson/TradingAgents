@@ -9,8 +9,11 @@ Rules are CONSTANTS — the LLM cannot modify them via prompt.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 # ── Hard rules (non-negotiable) ──────────────────────────────────────
@@ -26,7 +29,13 @@ RULES = {
 }
 
 BLOCKED_ACTIONS = frozenset({"SHORT", "SELL_SHORT", "PUT", "SHORT_SELL"})
-VALID_ACTIONS = frozenset({"BUY", "SELL", "HOLD", "OVERWEIGHT", "UNDERWEIGHT"})
+VALID_ACTIONS = frozenset({"BUY", "SELL", "HOLD", "OVERWEIGHT", "UNDERWEIGHT", "WATCH"})
+
+MICROCAP_RULES = {
+    "max_position_pct": 5,
+    "max_stop_loss_pct": -15,
+    "min_confidence": 6,
+}
 
 
 @dataclass
@@ -73,7 +82,7 @@ def extract_decision_json(text: str) -> dict | None:
 
 
 # ── Fallback: regex extraction from free text ─────────────────────────
-_ACTION_RE = re.compile(r"\b(BUY|SELL|HOLD|SHORT|OVERWEIGHT|UNDERWEIGHT)\b", re.IGNORECASE)
+_ACTION_RE = re.compile(r"\b(BUY|SELL|HOLD|SHORT|OVERWEIGHT|UNDERWEIGHT|WATCH)\b", re.IGNORECASE)
 _PRICE_PATTERNS = {
     "entry_price": re.compile(
         r"(?:entry|entr[ée]e|prix\s+d['e]\s*entr[ée]e)[^0-9\n]{0,30}([0-9]+(?:[.,][0-9]+)?)",
@@ -133,8 +142,56 @@ def parse_decision(final_decision_text: str, ticker: str = "") -> dict:
     return extract_decision_fallback(final_decision_text, ticker)
 
 
+# ── Journal probatoire des decisions (Chantier G, 2026-08-22) ─────────
+# Instrumentation PURE : n'altere jamais la decision d'enforcement.
+# Toute erreur d'ecriture est avalee — journaliser ne doit jamais bloquer un trade.
+_DECISION_LOG = Path(
+    os.environ.get(
+        "HKCONSEILS_ENFORCER_LOG",
+        "/home/khemerson/tradingagents/logs/enforcer_decisions.jsonl",
+    )
+)
+_DETAILS_MAX = 500
+
+
+def _log_decision(
+    result: "EnforcementResult",
+    portfolio_value: float,
+    cash_pct: float,
+    is_microcap: bool,
+) -> None:
+    """Append one JSONL line per enforcement decision. Never raises."""
+    try:
+        decision = result.decision or {}
+        details = {
+            "portfolio_value": portfolio_value,
+            "cash_pct": cash_pct,
+            "is_microcap": is_microcap,
+            "entry_price": decision.get("entry_price"),
+            "stop_loss": decision.get("stop_loss"),
+            "take_profit": decision.get("take_profit"),
+            "position_size_pct": decision.get("position_size_pct"),
+            "confidence": decision.get("confidence"),
+        }
+        details_s = json.dumps(details, ensure_ascii=False, default=str)[:_DETAILS_MAX]
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "ticker": str(decision.get("ticker", ""))[:32],
+            "action_proposee": str(decision.get("action", ""))[:32],
+            "verdict": "allow" if result.valid else "block",
+            "regle_soul": list(result.violations),
+            "details": details_s,
+        }
+        _DECISION_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with _DECISION_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        # Fail-safe absolu : l'enforcement prime sur sa tracabilite.
+        pass
+
+
 # ── Core enforcement ──────────────────────────────────────────────────
-def enforce(decision: dict, portfolio_value: float = 0, cash_pct: float = 100) -> EnforcementResult:
+def enforce(decision: dict, portfolio_value: float = 0, cash_pct: float = 100, is_microcap: bool = False) -> EnforcementResult:
     """Validate a Portfolio Manager decision against hard rules.
 
     Args:
@@ -146,6 +203,7 @@ def enforce(decision: dict, portfolio_value: float = 0, cash_pct: float = 100) -
         EnforcementResult with valid=True/False and list of violations.
     """
     violations: list[str] = []
+    rules = {**RULES, **(MICROCAP_RULES if is_microcap else {})}
     action = str(decision.get("action", "")).upper()
 
     # ── Long only ─────────────────────────────────────────────────────
@@ -165,43 +223,45 @@ def enforce(decision: dict, portfolio_value: float = 0, cash_pct: float = 100) -
         confidence = _float(decision.get("confidence"))
 
         # Stop-loss required
-        if RULES["require_stop_loss"] and sl <= 0:
+        if rules["require_stop_loss"] and sl <= 0:
             violations.append("STOP_LOSS_REQUIRED: no stop-loss defined")
         elif sl > 0 and entry > 0:
             sl_pct = (sl - entry) / entry * 100
-            if sl_pct < RULES["max_stop_loss_pct"]:
+            if sl_pct < rules["max_stop_loss_pct"]:
                 violations.append(
                     f"STOP_LOSS_TOO_WIDE: {sl_pct:.1f}% exceeds limit of {RULES['max_stop_loss_pct']}%"
                 )
 
         # Take-profit required
-        if RULES["require_take_profit"] and tp <= 0:
+        if rules["require_take_profit"] and tp <= 0:
             violations.append("TAKE_PROFIT_REQUIRED: no take-profit defined")
 
         # Position sizing
-        if pos_pct > RULES["max_position_pct"]:
+        if pos_pct > rules["max_position_pct"]:
             violations.append(
                 f"POSITION_TOO_LARGE: {pos_pct:.0f}% > {RULES['max_position_pct']}% max"
             )
 
         # Cash minimum
-        if pos_pct > 0 and (cash_pct - pos_pct) < RULES["min_cash_pct"]:
+        if pos_pct > 0 and (cash_pct - pos_pct) < rules["min_cash_pct"]:
             remaining = cash_pct - pos_pct
             violations.append(
                 f"CASH_MINIMUM: remaining cash {remaining:.1f}% < {RULES['min_cash_pct']}% min"
             )
 
         # Confidence minimum
-        if confidence > 0 and confidence < RULES["min_confidence"]:
+        if confidence > 0 and confidence < rules["min_confidence"]:
             violations.append(
                 f"LOW_CONFIDENCE: {confidence:.0f}/10 < {RULES['min_confidence']}/10 minimum"
             )
 
-    return EnforcementResult(
+    result = EnforcementResult(
         valid=len(violations) == 0,
         violations=violations,
         decision=decision,
     )
+    _log_decision(result, portfolio_value, cash_pct, is_microcap)
+    return result
 
 
 def _float(val: Any) -> float:
