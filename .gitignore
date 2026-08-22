@@ -221,3 +221,39 @@ __marimo__/
 # Enterprise env file (secrets) and generated run reports
 .env.enterprise
 reports/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HKCONSEILS — couche locale du fork. Le dépôt khemerson/TradingAgents est
+# PUBLIC : rien de ce bloc ne doit y arriver. Motifs ancrés à la racine (/x)
+# pour ne jamais ignorer un homonyme situé ailleurs dans l arborescence.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Wrappers et orchestration locaux (portés par copie de fichier, jamais commités)
+/pipeline_runner.py
+/run_analysis.py
+/serve_results.py
+/watchlist_manager.py
+/microcap_data.py
+/run_batch.sh
+/run_batch_crypto.sh
+/run_batch_crypto_resume.sh
+/run_watchlist.sh
+/run_watchlist_test.sh
+/F6_ARCHITECTURE.md
+/NOTES.md
+
+# Sorties et journaux locaux
+/output/
+/results/
+/logs/
+/data/
+
+# Secrets locaux : tout .env.<suffixe>, sauf les exemples versionnés en amont
+.env.*
+!.env.example
+!.env.enterprise.example
+
+# Sauvegardes horodatées
+*.bak
+*.bak.*
+*.pre-*
