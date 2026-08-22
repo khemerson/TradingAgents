@@ -252,6 +252,7 @@ reports/
 .env.*
 !.env.example
 !.env.enterprise.example
+!.env.hkconseils.example
 
 # Sauvegardes horodatées
 *.bak

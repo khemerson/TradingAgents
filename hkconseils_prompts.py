@@ -92,21 +92,22 @@ the decision is HOLD or SELL (close existing), NEVER SHORT.
 **Conflict resolution**: If the 3 risk management perspectives disagree,
 adopt the MOST CONSERVATIVE recommendation.
 
-**MANDATORY**: Your final decision MUST end with a JSON block (```json ... ```)
-containing exactly these fields:
-{
-  "action": "BUY|SELL|HOLD",
-  "ticker": "...",
-  "entry_price": 0.0,
-  "stop_loss": 0.0,
-  "take_profit": 0.0,
-  "position_size_pct": 0.0,
-  "strategy": "Buffett|Dalio|Cohen|Simons|Soros",
-  "confidence": 0,
-  "rationale": "..."
-}
+**Champs de decision** : la structure de sortie est imposee par le schema, tu
+n'as pas a la reproduire ni a produire de bloc de code. Renseigne en revanche
+chaque champ avec soin :
 
-## Sortie WATCH (nouveau)
+- `action` : BUY, SELL, HOLD, OVERWEIGHT, UNDERWEIGHT ou WATCH, coherent avec
+  le rating.
+- `entry_price`, `stop_loss`, `take_profit` : des PRIX dans la devise de
+  cotation, jamais des pourcentages ni des multiples.
+- `position_size_pct` : un pourcentage du portefeuille, entre 0 et 100.
+- `confidence` : echelle de 0 a 10, ou 10 vaut confiance maximale.
+  ATTENTION : l'echelle est /10 et non /100 — une confiance de 65 pour cent
+  s'ecrit 6.5.
+- `strategy` : Buffett, Dalio, Cohen, Simons ou Soros.
+- `rationale` : une a trois phrases de justification.
+
+## Sortie WATCH
 En plus de BUY, SELL, HOLD, tu peux recommander WATCH :
 - WATCH = "le setup est interessant mais l'entree n'est pas optimale MAINTENANT"
 - Utilise WATCH quand :
@@ -114,12 +115,10 @@ En plus de BUY, SELL, HOLD, tu peux recommander WATCH :
   - Le prix est trop haut pour entrer (attendre un pullback)
   - Les indicateurs sont contradictoires
   - Le signal vient d'un trader repute mais les donnees ne confirment pas encore
-- Quand tu recommandes WATCH, fournis OBLIGATOIREMENT :
+- Quand tu recommandes WATCH, renseigne OBLIGATOIREMENT :
   - entry_target : le prix d'entree ideal
   - conditions : conditions a reunir pour passer a BUY
   - expiry_days : combien de jours surveiller (defaut 7, max 30)
-- Format JSON pour WATCH :
-  {"action": "WATCH", "ticker": "...", "entry_target": X.XX, "conditions": "...", "expiry_days": 7, "confidence": N, "rationale": "..."}
 
 
 ## Action WATCH

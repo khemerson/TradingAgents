@@ -85,4 +85,7 @@ class AgentState(MessagesState):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    # Fork HKCONSEILS : decision du Portfolio Manager projetee dans la forme que
+    # l'enforcer SOUL consomme. None si la sortie structuree a echoue.
+    soul_decision: Annotated[dict, "Typed Portfolio Manager decision for the SOUL enforcer"]
     past_context: Annotated[str, "Memory log context injected at run start (same-ticker decisions + cross-ticker lessons)"]

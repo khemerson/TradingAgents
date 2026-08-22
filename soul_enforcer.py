@@ -142,6 +142,36 @@ def parse_decision(final_decision_text: str, ticker: str = "") -> dict:
     return extract_decision_fallback(final_decision_text, ticker)
 
 
+# ── Selection de la source de decision (GATE 5-bis) ───────────────────
+# Le chemin nominal est la decision TYPEE produite par le Portfolio Manager.
+# L'analyse textuelle reste disponible en filet, mais elle n'est plus un mode de
+# fonctionnement : chaque recours est compte et trace, car il signifie que
+# l'enforcer travaille sur des valeurs reconstruites plutot que declarees.
+FALLBACK_COUNTER = {"typed": 0, "text": 0}
+
+
+def decision_from_state(state_or_output: dict, final_text: str, ticker: str = "") -> dict:
+    """Retourne la decision a soumettre a ``enforce()``.
+
+    Prefere ``soul_decision`` (objet typé projeté par le Portfolio Manager).
+    A defaut, retombe sur l'analyse textuelle en le signalant.
+    """
+    typed = (state_or_output or {}).get("soul_decision")
+    if isinstance(typed, dict) and typed.get("action"):
+        FALLBACK_COUNTER["typed"] += 1
+        d = dict(typed)
+        d.setdefault("ticker", ticker)
+        return d
+
+    FALLBACK_COUNTER["text"] += 1
+    print(
+        "[soul] ANOMALIE : aucune decision typee disponible, repli sur l analyse "
+        "textuelle — les valeurs soumises a l enforcer sont reconstruites",
+        flush=True,
+    )
+    return parse_decision(final_text, ticker)
+
+
 # ── Journal probatoire des decisions (Chantier G, 2026-08-22) ─────────
 # Instrumentation PURE : n'altere jamais la decision d'enforcement.
 # Toute erreur d'ecriture est avalee — journaliser ne doit jamais bloquer un trade.

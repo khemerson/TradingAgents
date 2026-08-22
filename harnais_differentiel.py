@@ -161,6 +161,71 @@ FIXTURES = [
 ]
 
 
+def _via_adaptateur(decision):
+    """Projette une decision dans le schema typé puis la ressort par l'adaptateur.
+
+    Retourne None quand le schema REJETTE la decision : c'est le comportement
+    recherche (une confiance hors echelle, une action inconnue ou une taille de
+    position textuelle ne doivent plus jamais atteindre l'enforcer).
+    """
+    from tradingagents.agents.schemas_soul import PortfolioDecisionSOUL, to_enforcer_dict
+
+    champs = dict(decision)
+    action = champs.get("action")
+    if not action:
+        return None
+    try:
+        objet = PortfolioDecisionSOUL(
+            rating="Hold",
+            executive_summary="fixture",
+            investment_thesis="fixture",
+            action=action,
+            ticker=champs.get("ticker") or "TEST",
+            entry_price=champs.get("entry_price"),
+            stop_loss=champs.get("stop_loss"),
+            take_profit=champs.get("take_profit"),
+            position_size_pct=champs.get("position_size_pct"),
+            confidence=champs.get("confidence"),
+            rationale="fixture",
+        )
+    except Exception:
+        return None
+    return to_enforcer_dict(objet)
+
+
+def volet_adaptateur(nouveau):
+    """Le passage par le schema typé ne doit pas changer un verdict.
+
+    Pour chaque fixture representable par le schema, on compare le verdict rendu
+    a partir du dictionnaire brut et celui rendu apres aller-retour par le
+    schema. Les fixtures que le schema refuse sont comptees a part : leur refus
+    est le resultat voulu, pas un ecart.
+    """
+    identiques = rejetees = ecarts = 0
+    details = []
+    for nom, decision, cash, mc in FIXTURES:
+        adapte = _via_adaptateur(decision)
+        if adapte is None:
+            rejetees += 1
+            details.append(("rejetee par le schema", nom))
+            continue
+        a = nouveau.enforce(dict(decision), cash_pct=cash, is_microcap=mc)
+        b = nouveau.enforce(dict(adapte), cash_pct=cash, is_microcap=mc)
+        if a.valid == b.valid and list(a.violations) == list(b.violations):
+            identiques += 1
+        else:
+            ecarts += 1
+            details.append(("ECART", f"{nom}: {a.violations} vs {b.violations}"))
+    print()
+    print("=== volet adaptateur : le passage par le schema typé change-t-il un verdict ? ===")
+    for etiquette, texte in details:
+        print(f"  {etiquette:24} {texte}")
+    print(f"  verdicts identiques        : {identiques}")
+    print(f"  fixtures refusees en amont : {rejetees}  (refus voulu : elles n atteignent plus l enforcer)")
+    print(f"  ecarts                     : {ecarts}")
+    return ecarts == 0
+
+
 def main():
     temoin_inverse = "--temoin-inverse" in sys.argv
     JETABLE.mkdir(parents=True, exist_ok=True)
@@ -209,7 +274,9 @@ def main():
     print("  VERDICT :", "0 ecart sur "
           f"{len(FIXTURES)} fixtures - equivalence semantique prouvee"
           if verdict_ok else "ECHEC")
-    return 0 if verdict_ok else 1
+
+    adaptateur_ok = volet_adaptateur(nouveau)
+    return 0 if (verdict_ok and adaptateur_ok) else 1
 
 
 if __name__ == "__main__":

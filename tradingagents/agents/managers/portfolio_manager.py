@@ -10,7 +10,10 @@ back gracefully to free-text generation.
 
 from __future__ import annotations
 
-from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
+import logging
+
+from tradingagents.agents.schemas import render_pm_decision
+from tradingagents.agents.schemas_soul import PortfolioDecisionSOUL, to_enforcer_dict
 from tradingagents.agents.utils.agent_utils import (
     get_instrument_context_from_state,
     get_language_instruction,
@@ -21,8 +24,14 @@ from tradingagents.agents.utils.structured import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 def create_portfolio_manager(llm):
-    structured_llm = bind_structured(llm, PortfolioDecision, "Portfolio Manager")
+    # Fork HKCONSEILS : le schema etendu porte les entrees dont l'enforcer SOUL
+    # depend (prise de benefice, taille de position numerique, confiance bornee).
+    # Le schema amont n'est pas modifie : PortfolioDecisionSOUL en herite.
+    structured_llm = bind_structured(llm, PortfolioDecisionSOUL, "Portfolio Manager")
 
     def portfolio_manager_node(state) -> dict:
         instrument_context = get_instrument_context_from_state(state)
@@ -63,13 +72,43 @@ def create_portfolio_manager(llm):
 
 Be decisive and ground every conclusion in specific evidence from the analysts.{get_language_instruction()}"""
 
-        final_trade_decision = invoke_structured_or_freetext(
-            structured_llm,
-            llm,
-            prompt,
-            render_pm_decision,
-            "Portfolio Manager",
-        )
+        # Fork HKCONSEILS : on capture l'objet typé, pas seulement son rendu.
+        # C'est lui qui alimente l'enforcer ; le markdown reste inchangé pour le
+        # journal de decisions, l'affichage et les rapports sauvegardes.
+        soul_decision = None
+        final_trade_decision = None
+        if structured_llm is not None:
+            try:
+                parsed = structured_llm.invoke(prompt)
+                if parsed is not None:
+                    # Le rendu markdown ne depend QUE du schema amont : il reste
+                    # possible meme si l'objet ne porte pas les champs SOUL.
+                    final_trade_decision = render_pm_decision(parsed)
+                    if isinstance(parsed, PortfolioDecisionSOUL):
+                        soul_decision = to_enforcer_dict(parsed)
+                    else:
+                        logger.warning(
+                            "Portfolio Manager: decision typee sans les champs "
+                            "SOUL (%s) - l'enforcer lira une decision "
+                            "reconstruite par analyse textuelle",
+                            type(parsed).__name__,
+                        )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Portfolio Manager: sortie structuree indisponible (%s) ; "
+                    "repli sur le texte libre",
+                    exc,
+                )
+        if final_trade_decision is None:
+            # Filet de securite. Ce chemin ne doit PAS etre le mode nominal :
+            # l'enforcer y perd ses entrees typees. Trace explicitement pour
+            # qu'une recurrence se voie.
+            logger.warning(
+                "Portfolio Manager: aucune decision typee obtenue - repli sur "
+                "l analyse textuelle (signal d anomalie, pas un mode de "
+                "fonctionnement)"
+            )
+            final_trade_decision = llm.invoke(prompt).content
 
         new_risk_debate_state = {
             "judge_decision": final_trade_decision,
@@ -87,6 +126,9 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
         return {
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": final_trade_decision,
+            # Fork HKCONSEILS : None quand la sortie structuree a echoue, ce qui
+            # renvoie l'enforcer vers son filet d'analyse textuelle.
+            "soul_decision": soul_decision,
         }
 
     return portfolio_manager_node
