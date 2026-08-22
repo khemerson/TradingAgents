@@ -145,10 +145,13 @@ def parse_decision(final_decision_text: str, ticker: str = "") -> dict:
 # ── Journal probatoire des decisions (Chantier G, 2026-08-22) ─────────
 # Instrumentation PURE : n'altere jamais la decision d'enforcement.
 # Toute erreur d'ecriture est avalee — journaliser ne doit jamais bloquer un trade.
+# Le journal du re-fork est DISTINCT de celui de production : les entrees de
+# validation de la nouvelle base ne doivent jamais se melanger au journal
+# probatoire de l ancien deploiement. Surchargeable par HKCONSEILS_ENFORCER_LOG.
 _DECISION_LOG = Path(
     os.environ.get(
         "HKCONSEILS_ENFORCER_LOG",
-        str(Path(__file__).resolve().parent / "logs" / "enforcer_decisions.jsonl"),
+        str(Path(__file__).resolve().parent / "logs" / "enforcer_decisions.refork.jsonl"),
     )
 )
 _DETAILS_MAX = 500
