@@ -18,10 +18,14 @@ from tradingagents.agents import (
     create_portfolio_manager,
     create_research_manager,
     create_sentiment_analyst,
+    create_vision_analyst,
     create_trader,
 )
 from tradingagents.agents.utils.agent_states import AgentState
 
+# Fork HKCONSEILS : resumeur de debat en mode observation, intercale entre le
+# Research Manager et le Trader.
+from tradingagents.agents.debate_summarizer import create_debate_summarizer
 from .analyst_execution import build_analyst_execution_plan
 from .conditional_logic import ConditionalLogic
 
@@ -77,6 +81,9 @@ class GraphSetup:
             "social": lambda: create_sentiment_analyst(self.quick_thinking_llm),
             "news": lambda: create_news_analyst(self.quick_thinking_llm),
             "fundamentals": lambda: create_fundamentals_analyst(self.quick_thinking_llm),
+            # L'analyste vision passe par le modele « cerveau » : c'est lui qui
+            # porte le projecteur multimodal.
+            "vision": lambda: create_vision_analyst(self.deep_thinking_llm),
         }
 
         # Create researcher and manager nodes
@@ -98,7 +105,9 @@ class GraphSetup:
         for spec in plan.specs:
             workflow.add_node(spec.agent_node, analyst_factories[spec.key]())
             workflow.add_node(spec.clear_node, create_msg_delete())
-            workflow.add_node(spec.tool_node, self.tool_nodes[spec.key])
+            # Un analyste sans outil (tool_node=None) n'a pas de noeud d'outils.
+            if spec.tool_node is not None:
+                workflow.add_node(spec.tool_node, self.tool_nodes[spec.key])
 
         # Add other nodes
         workflow.add_node("Bull Researcher", bull_researcher_node)
@@ -109,6 +118,7 @@ class GraphSetup:
         workflow.add_node("Neutral Analyst", neutral_analyst)
         workflow.add_node("Conservative Analyst", conservative_analyst)
         workflow.add_node("Portfolio Manager", portfolio_manager_node)
+        workflow.add_node("Debate Summarizer", create_debate_summarizer())
 
         # Define edges
         # Start with the first analyst
@@ -120,13 +130,18 @@ class GraphSetup:
             current_tools = spec.tool_node
             current_clear = spec.clear_node
 
-            # Add conditional edges for current analyst
-            workflow.add_conditional_edges(
-                current_analyst,
-                getattr(self.conditional_logic, f"should_continue_{spec.key}"),
-                [current_tools, current_clear],
-            )
-            workflow.add_edge(current_tools, current_analyst)
+            if current_tools is None:
+                # Analyste sans outil : aucune boucle d'appel d'outils a arbitrer,
+                # donc une arete directe plutot qu'un routeur a cible unique.
+                workflow.add_edge(current_analyst, current_clear)
+            else:
+                # Add conditional edges for current analyst
+                workflow.add_conditional_edges(
+                    current_analyst,
+                    getattr(self.conditional_logic, f"should_continue_{spec.key}"),
+                    [current_tools, current_clear],
+                )
+                workflow.add_edge(current_tools, current_analyst)
 
             # Connect to next analyst or to Bull Researcher if this is the last analyst
             if i < len(plan.specs) - 1:
@@ -141,7 +156,14 @@ class GraphSetup:
                 self.conditional_logic.should_continue_debate,
                 DEBATE_PATH_MAP,
             )
-        workflow.add_edge("Research Manager", "Trader")
+        # Fork HKCONSEILS : le resume s'intercale sur cette arete en dur. Mode
+        # observation — il depose son resultat dans l'etat, mais le Trader, les
+        # debatteurs risque et le Portfolio Manager continuent de lire
+        # l'historique brut du debat. Les aretes conditionnelles du debat et du
+        # risque ne sont pas touchees : leurs path maps partagees restent
+        # completes (#1088).
+        workflow.add_edge("Research Manager", "Debate Summarizer")
+        workflow.add_edge("Debate Summarizer", "Trader")
         workflow.add_edge("Trader", "Aggressive Analyst")
         # All three risk edges share the complete RISK_ANALYSIS_PATH_MAP (#1088).
         for risk_node in ("Aggressive Analyst", "Conservative Analyst", "Neutral Analyst"):

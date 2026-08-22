@@ -59,6 +59,18 @@ class AgentState(MessagesState):
         str, "Report from the News Researcher of current world affairs"
     ]
     fundamentals_report: Annotated[str, "Report from the Fundamentals Researcher"]
+    vision_report: Annotated[str, "Report from the Vision Analyst (chart image analysis)"]
+
+    # Image de graphique encodee en base64, injectee au demarrage du run par
+    # run_analysis.py --image. Vide quand aucune image n'est fournie.
+    chart_image_b64: Annotated[str, "Base64-encoded chart image for the Vision Analyst"]
+
+    # Resume structure du debat haussier/baissier, pose entre le Research Manager
+    # et le Trader. Observation seule : les noeuds en aval continuent de lire
+    # l'historique brut du debat.
+    debate_summary: Annotated[
+        dict, "Structured Bull/Bear debate summary (status, summary_text, metrics)"
+    ]
 
     # researcher team discussion step
     investment_debate_state: Annotated[

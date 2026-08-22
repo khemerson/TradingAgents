@@ -8,7 +8,9 @@ class AnalystNodeSpec:
     key: str
     agent_node: str
     clear_node: str
-    tool_node: str
+    # None pour un analyste sans outil : le graphe relie alors directement le
+    # noeud d'agent a son noeud de nettoyage, sans boucle d'appel d'outils.
+    tool_node: str | None
     report_key: str
 
 
@@ -49,6 +51,15 @@ ANALYST_NODE_SPECS: dict[str, AnalystNodeSpec] = {
         clear_node="Msg Clear Fundamentals",
         tool_node="tools_fundamentals",
         report_key="fundamentals_report",
+    ),
+    # Fork HKCONSEILS. Seul analyste sans outil : il lit une image deposee dans
+    # l'etat au lieu d'interroger un fournisseur de donnees, d'ou tool_node=None.
+    "vision": AnalystNodeSpec(
+        key="vision",
+        agent_node="Vision Analyst",
+        clear_node="Msg Clear Vision",
+        tool_node=None,
+        report_key="vision_report",
     ),
 }
 

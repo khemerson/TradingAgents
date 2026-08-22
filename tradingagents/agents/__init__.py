@@ -1,6 +1,7 @@
 from .analysts.fundamentals_analyst import create_fundamentals_analyst
 from .analysts.market_analyst import create_market_analyst
 from .analysts.news_analyst import create_news_analyst
+from .analysts.vision_analyst import create_vision_analyst
 from .analysts.sentiment_analyst import (
     create_sentiment_analyst,
     create_social_media_analyst,  # deprecated alias kept for back-compat
@@ -32,6 +33,7 @@ __all__ = [
     "create_portfolio_manager",
     "create_conservative_debator",
     "create_sentiment_analyst",
+    "create_vision_analyst",
     "create_social_media_analyst",  # deprecated; will be removed in a future version
     "create_trader",
 ]

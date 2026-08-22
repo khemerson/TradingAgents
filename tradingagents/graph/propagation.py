@@ -22,6 +22,7 @@ class Propagator:
         asset_type: str = "stock",
         past_context: str = "",
         instrument_context: str = "",
+        chart_image_b64: str = "",
     ) -> dict[str, Any]:
         """Create the initial state for the agent graph.
 
@@ -66,6 +67,10 @@ class Propagator:
             "fundamentals_report": "",
             "sentiment_report": "",
             "news_report": "",
+            # Fork HKCONSEILS : analyste vision. Sans image, le noeud rend un
+            # rapport de substitution et la chaine se poursuit.
+            "vision_report": "",
+            "chart_image_b64": chart_image_b64 or "",
         }
 
     def get_graph_args(self, callbacks: list | None = None) -> dict[str, Any]:
